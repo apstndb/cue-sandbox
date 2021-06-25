@@ -1,6 +1,7 @@
 package gcpauth
 
 import "tool/exec"
+
 import "strings"
 
 GcloudIDToken: exec.Run & {

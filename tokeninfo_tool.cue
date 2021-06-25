@@ -10,29 +10,12 @@ import (
 	"encoding/json"
 	"strings"
 	"strconv"
-	"encoding/base64"
+	"github.com/apstndb/cue-sandbox/jwt"
 )
-
-#Base64URL: {
-	input:  string
-	output: strings.Replace(strings.Replace(strings.Replace(base64.Encode(null, input), "+", "-", -1), "/", "_", -1), "=", "", -1)
-}
 
 #PrettyJSON: {
 	input: {...}
 	output: json.Indent(json.Marshal(input), "", "  ")
-}
-
-#JSONBase64URL: {
-	input: {...}
-	let Input = input
-	output: (#Base64URL & {input: json.Marshal(Input)}).output
-}
-
-#JwtPayload: {
-	claims: {...}
-	header: {alg: "RS256", typ: "JWT"}
-	output: (#JSONBase64URL & {input: header}).output + "." + (#JSONBase64URL & {input: claims}).output
 }
 
 #ComputeMetadata: http.Get & {
@@ -41,22 +24,9 @@ import (
 	request: header: "metadata-flavor": "Google"
 }
 
-SignJwt: exec.Run & {
-	// input
-	privateKeyPem: string
-	claims: {}
-	let Claims = claims
-
-	cmd: ["./sign"]
-	env: PRIVATE_KEY_PEM: privateKeyPem
-	stdin:  (#JwtPayload & {claims: Claims}).output
-	stdout: string
-
-	output: stdin + "." + stdout
-}
-
 command: sign: {
 	task: read_gsa: file.Read & {
+		// Limitation: CUE doesn't support environment variables so you should inject by -t GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
 		filename: string @tag(GOOGLE_APPLICATION_CREDENTIALS)
 		contents: string
 		output:   json.Unmarshal(contents)
@@ -69,7 +39,7 @@ command: sign: {
 		output: strconv.ParseInt(strings.TrimSpace(stdout), 10, 64)
 	}
 
-	task: sign: SignJwt & {
+	task: sign: jwt.SignJwt & {
 		claims: {
 			iat:   task.unix_now.output
 			exp:   task.unix_now.output + 3600
@@ -103,12 +73,6 @@ command: sign: {
 	task: display: cli.Print & {
 		text: (#PrettyJSON & {input: task.tokeninfo.response_body}).output
 	}
-
-	// task: display: cli.Print & {
-	//  // text: (#base64url & {payload: task.sign.stdout}).output
-	//  // text: task.sign.stdout
-	//  text: task.sign.output
-	// }
 }
 
 command: adc: {
