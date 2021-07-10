@@ -40,10 +40,10 @@ command: jwt_bearer_flow: {
 
 	task: jwt_for_id_token: jwt.SignJwt & {
 		claims: {
-			iat:   task.unix_now.output
-			exp:   task.unix_now.output + 3600
-			iss:   task.read_gsa.output.client_email
-			aud:   "https://oauth2.googleapis.com/token"
+			iat:             task.unix_now.output
+			exp:             task.unix_now.output + 3600
+			iss:             task.read_gsa.output.client_email
+			aud:             "https://oauth2.googleapis.com/token"
 			target_audience: "https://example.com"
 		}
 		privateKeyPem: task.read_gsa.output.private_key

@@ -31,3 +31,14 @@ SignJwt: exec.Run & {
 
 	output: stdin + "." + stdout
 }
+
+SimpleJwt: exec.Run & {
+	// input
+	privateKeyPem: string
+	claims: {}
+
+	cmd: ["../simplejwt/simplejwt"]
+	env: PRIVATE_KEY_PEM: privateKeyPem
+	stdin:  json.Marshal(claims)
+	stdout: string
+}
