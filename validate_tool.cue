@@ -14,6 +14,7 @@ import (
 command: validate: {
 	task: env: os.Getenv & {
 		GOOGLE_APPLICATION_CREDENTIALS: string
+		CLOUDSDK_CONFIG:                string
 		HOME:                           string
 	}
 
@@ -24,7 +25,10 @@ command: validate: {
 	}
 
 	task: read_file: file.Read & {
-		_well_known_path:       task.env.HOME + "/.config/gcloud/application_default_credentials.json"
+		_well_known_path: [
+					if task.env.CLOUDSDK_CONFIG != _|_ {task.env.CLOUDSDK_CONFIG},
+					task.env.HOME + "/.config/gcloud",
+		][0] + "/application_default_credentials.json"
 		_found_credential_path: [
 					if task.env.GOOGLE_APPLICATION_CREDENTIALS != _|_ {task.env.GOOGLE_APPLICATION_CREDENTIALS},
 					if len(task.find_well_known_file.files) > 0 {task.find_well_known_file.files[0]},
@@ -40,7 +44,7 @@ command: validate: {
 		if (parsed & #UserCredentials) != _|_ {
 			httpplus.Post & {
 				_user_credentials: parsed & #UserCredentials
-				url:              "https://www.googleapis.com/oauth2/v4/token"
+				url:               "https://www.googleapis.com/oauth2/v4/token"
 				request_body: {
 					grant_type:    "refresh_token"
 					client_id:     _user_credentials.client_id
@@ -74,6 +78,7 @@ command: validate: {
 		}
 		if task.read_file.contents == "" {
 			httpplus.Get & {
+				url: "http://169.256.169.254/computeMetadata/v1/instance/service-accounts/default/token"
 				request: header: "metadata-flavor": "Google"
 			}
 		}

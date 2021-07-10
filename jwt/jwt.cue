@@ -37,7 +37,7 @@ SimpleJwt: exec.Run & {
 	privateKeyPem: string
 	claims: {}
 
-	cmd: ["../simplejwt/simplejwt"]
+	cmd: ["simplejwt"]
 	env: PRIVATE_KEY_PEM: privateKeyPem
 	stdin:  json.Marshal(claims)
 	stdout: string

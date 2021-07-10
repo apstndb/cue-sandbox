@@ -6,6 +6,6 @@ import (
 )
 
 ReadJSON: file.Read & {
-	contents: string
+	contents:        string
 	parsed_contents: json.Unmarshal(contents)
 }
