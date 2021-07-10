@@ -21,7 +21,7 @@ command: validate: {
 	task: find_well_known_file: file.Glob & {
 		_well_known_path: task.env.HOME + "/.config/gcloud/application_default_credentials.json"
 		glob:             _well_known_path
-		files: [string]
+		files: [...string]
 	}
 
 	task: read_file: file.Read & {
@@ -78,7 +78,7 @@ command: validate: {
 		}
 		if task.read_file.contents == "" {
 			httpplus.Get & {
-				url: "http://169.256.169.254/computeMetadata/v1/instance/service-accounts/default/token"
+				url: "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token"
 				request: header: "metadata-flavor": "Google"
 			}
 		}
