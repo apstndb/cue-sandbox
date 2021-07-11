@@ -1,4 +1,4 @@
-package main
+package gcpauth
 
 #ServiceAccount: {
 	type: "service_account"
