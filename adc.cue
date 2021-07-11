@@ -36,21 +36,21 @@ command: adc: {
 	}
 
 	task: find_well_known_file: file.Glob & {
-		_well_known_path: [
-					if task.env.CLOUDSDK_CONFIG != _|_ {task.env.CLOUDSDK_CONFIG},
-					task.env.HOME + "/.config/gcloud",
+		let WellKnownPath = [
+			if task.env.CLOUDSDK_CONFIG != _|_ {task.env.CLOUDSDK_CONFIG},
+			task.env.HOME + "/.config/gcloud",
 		][0] + "/application_default_credentials.json"
-		glob: _well_known_path
+		glob: WellKnownPath
 	}
 
 	task: read_file: file.Read & {
 		$after: [task.find_well_known_file]
-		_found_credential_path: list.FlattenN([
-					if task.env.GOOGLE_APPLICATION_CREDENTIALS != _|_ {task.env.GOOGLE_APPLICATION_CREDENTIALS},
-					task.find_well_known_file.files,
-					"/dev/null",
+		let FoundCredentialPath = list.FlattenN([
+			if task.env.GOOGLE_APPLICATION_CREDENTIALS != _|_ {task.env.GOOGLE_APPLICATION_CREDENTIALS},
+			task.find_well_known_file.files,
+			"/dev/null",
 		], 1)[0]
-		filename: _found_credential_path
+		filename: FoundCredentialPath
 		contents: string
 	}
 
@@ -60,13 +60,13 @@ command: adc: {
 		let parsed = json.Unmarshal(task.read_file.contents)
 		if (parsed & gcpauth.#UserCredentials) != _|_ {
 			httpplus.Post & {
-				_user_credentials: parsed & gcpauth.#UserCredentials
-				url:               _token_endpoint
+				let UserCredentials = parsed & gcpauth.#UserCredentials
+				url: _token_endpoint
 				request_body: {
 					grant_type:    "refresh_token"
-					client_id:     _user_credentials.client_id
-					client_secret: _user_credentials.client_secret
-					refresh_token: _user_credentials.refresh_token
+					client_id:     UserCredentials.client_id
+					client_secret: UserCredentials.client_secret
+					refresh_token: UserCredentials.refresh_token
 				}
 			}
 		}
@@ -83,12 +83,12 @@ command: adc: {
 				metadata: "instance/service-accounts/default/token"
 			}
 			// id_token: gcpmetadata.Metadata & {
-			// 	if task.env.AUDIENCE != _|_ {
-			// 		metadata: "instance/service-accounts/default/identity?audience=\(task.env.AUDIENCE)"
-			// 	}
-			// 	if task.env.AUDIENCE == _|_ {
-			// 		metadata: "instance/service-accounts/default/identity"
-			// 	}
+			//  if task.env.AUDIENCE != _|_ {
+			//   metadata: "instance/service-accounts/default/identity?audience=\(task.env.AUDIENCE)"
+			//  }
+			//  if task.env.AUDIENCE == _|_ {
+			//   metadata: "instance/service-accounts/default/identity"
+			//  }
 			// }
 			response_body: access_token.response_body
 		}
@@ -97,9 +97,11 @@ command: adc: {
 	task: optional_impersonate: {
 		$after: [task.access_token]
 		if task.env.CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT != _|_ {
+			let Name = "projects/-/serviceAccounts/\(task.env.CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT)"
+			let AccessToken = task.access_token.response_body.access_token
 			access_token: httpplus.Post & {
-				url:          "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/\(task.env.CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT):generateAccessToken"
-				bearer_token: task.access_token.response_body.access_token
+				url:          "https://iamcredentials.googleapis.com/v1/\(Name):generateAccessToken"
+				bearer_token: AccessToken
 				request_body: credentials.#GenerateAccessTokenRequest & {
 					scope: _default_scopes
 				}
@@ -109,14 +111,14 @@ command: adc: {
 
 			if task.env.AUDIENCE != _|_ {
 				id_token: httpplus.Post & {
-					url:          "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/\(task.env.CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT):generateIdToken"
-					bearer_token: task.access_token.response_body.access_token
+					url:          "https://iamcredentials.googleapis.com/v1/\(Name):generateIdToken"
+					bearer_token: AccessToken
 					request_body: credentials.#GenerateIdTokenRequest & {
 						audience:     task.env.AUDIENCE
 						includeEmail: true
 					}
 				}
-				response_body: "id_token": task.optional_impersonate.id_token.response_body.token
+				response_body: "id_token": id_token.response_body.token
 			}
 		}
 		if task.env.CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT == _|_ {
